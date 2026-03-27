@@ -1,0 +1,30 @@
+@{
+    ViewData["Title"] = "Secure Page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Secure Page</h1>
+    <p>You can only see this page because you are logged in.</p>
+
+    <div class="mt-4">
+        <h3>User Claims</h3>
+        <ul class="list-group">
+            @foreach (var claim in User.Claims)
+            {
+                <li class="list-group-item"><b>@claim.Type:</b> @claim.Value</li>
+            }
+        </ul>
+    </div>
+
+    <div class="mt-4">
+        <a asp-controller="Home" asp-action="CallApi" class="btn btn-primary">Call Protected Resource API</a>
+    </div>
+
+    @if (ViewBag.ApiData != null)
+    {
+        <div class="mt-4 p-3 bg-light border rounded text-start">
+            <h4>API Response</h4>
+            <pre>@ViewBag.ApiData</pre>
+        </div>
+    }
+</div>

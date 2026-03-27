@@ -1,0 +1,19 @@
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome to AuthServer</h1>
+    <p>This is the OpenIddict Authorization Server.</p>
+    @if (User.Identity.IsAuthenticated)
+    {
+        <p>You are logged in as @User.Identity.Name.</p>
+        <form asp-controller="Account" asp-action="Logout" method="post">
+            <button type="submit" class="btn btn-danger">Log out</button>
+        </form>
+    }
+    else
+    {
+        <p><a asp-controller="Account" asp-action="Login">Log in</a></p>
+    }
+</div>
