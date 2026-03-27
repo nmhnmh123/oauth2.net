@@ -94,3 +94,48 @@ Tài liệu này giải thích đường đi của dữ liệu (flow) từ khi b
 * `WebClient` nhận chuỗi JSON này và ném lên màn hình (View `SecurePage`). 
 
 **KẾT THÚC HÀNH TRÌNH!** Kẻ xấu không thể lấy được JWT Access Token của bạn vì nó không bao giờ truyền qua thanh công cụ trình duyệt mà truyền ngầm giữa Server với Server. Kẻ xấu lấy trộm `Authorization Code` cũng chịu cứng vì họ không có `ClientSecret` để đi qua bước số 7.
+
+---
+
+## HƯỚNG DẪN TRIỂN KHAI TỪ ĐẦU (Implementation Blueprint)
+
+Nếu bạn muốn áp dụng mô hình này vào một dự án mới, hãy thực hiện theo thứ tự 4 Bước "Xương sống" sau đây:
+
+### Bước 1: Xây dựng Bộ máy Cấp thẻ (AuthServer)
+1. **Cài đặt thư viện:** Add NuGet `OpenIddict`.
+2. **Cấu hình `DbContext`:** Kích hoạt `.UseOpenIddict()` trong EF Core.
+3. **Cấu hình Server (`Program.cs`):** 
+   - Khai báo các Endpoint (Authorize, Token, Logout).
+   - Đăng ký các Scopes (openid, profile, roles, api1...).
+   - **QUAN TRỌNG:** `.DisableAccessTokenEncryption()` để nhả JWT.
+4. **Viết `AuthorizationController`:** 
+   - Hàm `Authorize`: Check login -> Duyệt Scopes -> Duyệt Resources.
+   - Hàm `Exchange`: Đổi Code lấy Token (Hỗ trợ Authorization Code & Refresh Token).
+5. **Đăng ký Client:** Tạo code Seed (như `TestDataHostedService`) để đăng ký `client_id`, `client_secret` và các `Permissions` hợp lệ vào Database.
+
+### Bước 2: Xây dựng Trạm gác (ResourceApi)
+1. **Cài đặt thư viện:** Add NuGet `OpenIddict.Validation.AspNetCore`.
+2. **Cấu hình Validation (`Program.cs`):**
+   - `.SetIssuer("http://auth-server-url")`.
+   - `.AddAudiences("ResourceApi")`.
+   - **Xử lý Role:** Cấu hình `RoleClaimType = "role"` trong `TokenValidationParameters`.
+3. **Bảo vệ Controller:** Gắn nhãn `[Authorize]` hoặc `[Authorize(Roles = "Admin")]`.
+
+### Bước 3: Xây dựng Khách hàng (WebClient)
+1. **Dùng Middleware chuẩn:** `.AddAuthentication().AddCookie().AddOpenIdConnect()`.
+2. **Cấu hình OIDC:**
+   - Khớp `ClientId`, `ClientSecret`, `Authority`.
+   - `options.SaveTokens = true` (Để lưu Token vào Cookie phiên làm việc).
+   - Thêm các Scopes cần thiết (`api1`, `offline_access`...).
+3. **Gọi API:** Dùng `HttpContext.GetTokenAsync("access_token")` nhét vào Header khi gọi HttpClient sang ResourceApi.
+
+### Bước 4: Xử lý Tự động Làm mới (Refresh Token) 
+1. **Tại AuthServer:** `.AllowRefreshTokenFlow()` và cấp scope `offline_access`.
+2. **Tại WebClient:** Khi gọi API bị lỗi `401 Unauthorized`, hãy viết Logic `Interceptor`: 
+   - Lấy `refresh_token` ra.
+   - Gọi POST sang `/connect/token` của AuthServer.
+   - Cập nhật Token mới vào Cookie (`HttpContext.SignInAsync`).
+   - Thử lại yêu cầu gọi API ban đầu.
+
+---
+*Tài liệu này là "Kim chỉ nam" giúp bạn tái cấu trúc bất cứ dự án .NET nào sang kiến trúc OAuth2 sịn sò này!* 🚀

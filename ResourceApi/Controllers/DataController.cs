@@ -10,7 +10,7 @@ namespace ResourceApi.Controllers
     // Cái Mộc CẤM CỬA CỰC KỲ QUAN TRỌNG:
     // Bạn gắn vào class này, thì bất cứ đứa nào chạy vào đây mà không xuất trình Thẻ Nhựa (Access Token Header: Bearer xxx)
     // Sẽ lập tức bị đá văng với Mã lỗi 401 Unauthorized (Chưa Xác Thực) hoặc 403 Forbidden (Cấm)
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public class DataController : ControllerBase
     {
         // Khi client nhắm vào hàm /api/Data bằng lệnh HttpGet

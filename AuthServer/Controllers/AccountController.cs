@@ -1,6 +1,9 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using AuthServer.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
@@ -11,9 +14,16 @@ namespace AuthServer.Controllers
     // Không liên quan gì tới Token. Ở đây thuần túy là ASP.NET Core MVC Cookie
     public class AccountController : Controller
     {
+        private readonly ApplicationDbContext _context;
+
+        public AccountController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
         // Khi truy cập /Account/Login, nó hiện form HTML
         [HttpGet]
-        public IActionResult Login(string returnUrl = null)
+        public IActionResult Login(string? returnUrl = null)
         {
             // returnUrl chứa cái link cũ (Thường là link /connect/authorize)
             ViewData["ReturnUrl"] = returnUrl;
@@ -22,23 +32,31 @@ namespace AuthServer.Controllers
 
         // Khi bấm nút SUBMIT trên form
         [HttpPost]
-        public async Task<IActionResult> Login(string username, string password, string returnUrl = null)
+        public async Task<IActionResult> Login(string username, string password, string? returnUrl = null)
         {
-            // ĐỂ ĐƠN GIẢN HÓA: Mọi TÀI KHOẢN VÀ MẬT KHẨU ĐỀU ĐƯỢC CHẤP NHẬN.
-            // Trong thực tế, bạn phải cắm Database (Identity) vào đây, check hàm CheckPasswordAsync xem có đúng mật khẩu không.
+            // Lấy user từ Database
+            var user = _context.Users.FirstOrDefault(u => u.Username == username && u.Password == password);
+
+            if (user == null)
+            {
+                ModelState.AddModelError(string.Empty, "Tài khoản hoặc mật khẩu không đúng.");
+                ViewData["ReturnUrl"] = returnUrl;
+                return View();
+            }
             
-            // Nếu Mật Khẩu Đúng, ta ghi lại các thông tin của người dùng (Claims) để cấp phát trình duyệt thành 1 Thẻ Cookie.
+            // Nếu Mật Khẩu Đúng, ta ghi lại các thông tin của người dùng (Claims)
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.Name, username),
-                new Claim(ClaimTypes.Email, $"{username}@example.com"),
-                new Claim(ClaimTypes.NameIdentifier, username)
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Email, $"{user.Username}@example.com"),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Role, user.Role) // Gán Role cho người dùng
             };
 
             var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);
 
-            // Hành động Lưu bộ chứng chỉ này xuống trình duyệt (dưới dạng Cookie) để lần sau F5 khỏi phải Login lại.
+            // Hành động Lưu bộ chứng chỉ này xuống trình duyệt (dưới dạng Cookie)
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
 
             // Sau khi Lưu xong, NẾU NGƯỜI NÀY DO CHUYỂN HƯỚNG TỪ MỘT NƠI KHÁC SANG (như /connect/authorize...)

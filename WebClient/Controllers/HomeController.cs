@@ -1,7 +1,11 @@
+using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -51,21 +55,54 @@ namespace WebClient.Controllers
 
             // 4. Nhấn cắm tiêm lấy Máu: Gọi qua cổng 5002, xin hàm /api/data.
             var response = await client.GetAsync("/api/data");
-            
-            // 5. Nếu cổng 5002 soi Thẻ Bài đúng, nó sẽ trả mã 200 (SuccessStatusCode) và trào máu (json) cho mình.
+            // 5. Nếu bị đuổi vì Token hết hạn (401), Tiến hành tự động lấy Refresh Token đi dổi token mới!
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                var refreshToken = await HttpContext.GetTokenAsync("refresh_token");
+                if (!string.IsNullOrEmpty(refreshToken))
+                {
+                    var refreshClient = _httpClientFactory.CreateClient();
+                    var content = new FormUrlEncodedContent(new Dictionary<string, string>
+                    {
+                        { "grant_type", "refresh_token" },
+                        { "client_id", "web-client" },
+                        { "client_secret", "901564A5-E7FE-42CB-B10D-61EF6A8F3654" },
+                        { "refresh_token", refreshToken }
+                    });
+
+                    var refreshResponse = await refreshClient.PostAsync("http://localhost:5001/connect/token", content);
+                    if (refreshResponse.IsSuccessStatusCode)
+                    {
+                        // Đổi thành công, đọc Token mới ra
+                        var json = await refreshResponse.Content.ReadAsStringAsync();
+                        using var doc = JsonDocument.Parse(json);
+                        var newAccessToken = doc.RootElement.GetProperty("access_token").GetString();
+                        var newRefreshToken = doc.RootElement.GetProperty("refresh_token").GetString();
+
+                        // Cập nhật lại vào Cookie lưu trên trình duyệt để xài tiếp
+                        var authInfo = await HttpContext.AuthenticateAsync("Cookies");
+                        authInfo.Properties.UpdateTokenValue("access_token", newAccessToken);
+                        authInfo.Properties.UpdateTokenValue("refresh_token", newRefreshToken);
+                        await HttpContext.SignInAsync("Cookies", authInfo.Principal, authInfo.Properties);
+
+                        // GỌI LẠI API với mộc truy cập MỚI
+                        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", newAccessToken);
+                        response = await client.GetAsync("/api/data");
+                    }
+                }
+            }
+
+            // 6. Sau khi refresh (nếu có cần), kiểm tra lại lần cuối
             if (response.IsSuccessStatusCode)
             {
-                // Đọc Máu (Hút Data) bỏ vào ViewBag
-                var content = await response.Content.ReadAsStringAsync();
-                ViewBag.ApiData = content;
+                var contentData = await response.Content.ReadAsStringAsync();
+                ViewBag.ApiData = contentData;
             }
             else
             {
-                // Nếu cắm tiêm vô mà nó đuổi ra đánh móp đầu (Thẻ hết hạn, thẻ láo) thì hiện Lỗi
-                ViewBag.ApiData = $"API Error: Bị Chặn Hoặc Cấm - Lỗi Mã {response.StatusCode}";
+                ViewBag.ApiData = $"API Error: Bị Chặn Hoặc Cấm - Lỗi Mã {response.StatusCode} - Sau cả khi thử Refresh.";
             }
 
-            // Mượn giao diện của trang 1 để hiện lại chứ k qua trang mới
             return View("SecurePage");
         }
 

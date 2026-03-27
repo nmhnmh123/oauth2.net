@@ -20,6 +20,12 @@ builder.Services.AddOpenIddict()
         // Bật cơ chế kiểm tra (Introspection) bằng cách gọi thẳng HTTP qua thằng AuthServer (cổng 5001)
         options.UseSystemNetHttp();
         options.UseAspNetCore();
+    })
+    .AddValidation(options =>
+    {
+        // Cấu hình để ASP.NET Core hiểu được cái claim "role" ngắn gọn của OpenIddict 
+        // thay vì tìm cái link dài ngoằng mặc định của Microsoft.
+        options.Configure(o => o.TokenValidationParameters.RoleClaimType = "role");
     });
 
 // Thiết lập chế độ Xác thực (Authentication) cho những Controller nào gắn tag [Authorize]

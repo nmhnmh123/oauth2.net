@@ -29,6 +29,14 @@ namespace AuthServer.HostedServices
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             await context.Database.EnsureCreatedAsync(cancellationToken);
 
+            // Seed Users
+            if (!context.Users.Any())
+            {
+                context.Users.Add(new AppUser { Username = "admin", Password = "123", Role = "Admin" });
+                context.Users.Add(new AppUser { Username = "user", Password = "123", Role = "User" });
+                await context.SaveChangesAsync(cancellationToken);
+            }
+
             // 2. Lấy bộ quản lý Application của OpenIddict (Giúp quản lý thông tin các App Client bên thứ 3)
             var manager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
 
@@ -72,12 +80,14 @@ namespace AuthServer.HostedServices
                         OpenIddictConstants.Permissions.Endpoints.EndSession,
                         OpenIddictConstants.Permissions.Endpoints.Token,
                         
-                        // Cấp luồng Authorization Code
+                        // Cấp luồng Authorization Code và Refresh Token
                         OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
+                        OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
                         OpenIddictConstants.Permissions.ResponseTypes.Code,
                         
                         // Cấp cho nó quyền xin xỏ Thông tin cá nhân cơ bản và cả quyền API tự cắt nghĩa ("api1")
                         OpenIddictConstants.Permissions.Prefixes.Scope + "openid", // Cấp quyền OpenID Connect
+                        OpenIddictConstants.Permissions.Prefixes.Scope + "offline_access", // Cấp quyền Refresh Token
                         OpenIddictConstants.Permissions.Scopes.Email,
                         OpenIddictConstants.Permissions.Scopes.Profile,
                         OpenIddictConstants.Permissions.Scopes.Roles,

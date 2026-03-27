@@ -49,6 +49,7 @@ builder.Services.AddAuthentication(options =>
     options.Scope.Add("api1");    // Xin quyền truy cập mã api1
     options.Scope.Add("profile"); // Xin danh tính Profile
     options.Scope.Add("roles");   // Xin phân quyền Role
+    options.Scope.Add("offline_access"); // Xin quyền Refresh Token
 });
 
 // Cấu hình một cái HttpClient (Đường Ống Khép Kín) để chút nữa WebClient xài bơm dữ liệu từ cổng 5002 (ResourceAPI) về.

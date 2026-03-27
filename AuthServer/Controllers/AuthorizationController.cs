@@ -64,6 +64,14 @@ namespace AuthServer.Controllers
                     .SetDestinations(OpenIddictConstants.Destinations.AccessToken)
             };
 
+            // Lấy Role từ Cookie và nhét luôn vào Token theo chuẩn OpenID (thường là "role" thay vì link dài của Microsoft)
+            var roleClaim = result.Principal.FindFirst(ClaimTypes.Role);
+            if (roleClaim != null)
+            {
+                claims.Add(new Claim(OpenIddictConstants.Claims.Role, roleClaim.Value)
+                    .SetDestinations(OpenIddictConstants.Destinations.AccessToken, OpenIddictConstants.Destinations.IdentityToken));
+            }
+
             // Gom rổ Claims này lại thành 1 "Hồ sơ điện tử" định danh bằng giao thức OpenIddict
             var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);

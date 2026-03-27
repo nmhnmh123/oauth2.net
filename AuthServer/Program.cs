@@ -48,12 +48,14 @@ builder.Services.AddOpenIddict()
             "email",
             "profile",
             "roles",
-            "api1");
+            "api1",
+            "offline_access");
 
         // Bật luồng Authorization Code Flow. 
         // Luồng này an toàn nhất cho Web, khi người dùng login xong, hệ thống nhả ra 1 cái "Code",
         // rồi phần dứoi nền (backend) cầm "Code" đó đổi thành "Token" để ngăn hacker ăn cắp Token trên thanh trình duyệt.
-        options.AllowAuthorizationCodeFlow();
+        options.AllowAuthorizationCodeFlow()
+               .AllowRefreshTokenFlow();
 
         // Đăng ký chứng chỉ (Certificate) dùng để ký (sign) và mã hóa (encrypt) cái Token.
         // Token cấp ra có chữ ký này thì máy chủ ResourceApi mới tin tưởng là đồ thật.
